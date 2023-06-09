@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package pb;
+option go_package = "../pb";
+
+service UserService {
+  rpc GetUser(UserRequest) returns (UserResponse);
+  rpc CreateUser(UserInfo) returns (CreateUserResponse);
+  rpc GetList(Empty) returns (ListResponse);
+} 
+
+enum Status {
+    Error = 0;
+    Succ = 1;
+    Repeat = 2;
+}
+
+message Empty {}
+
+message ListResponse {
+    repeated UserInfo List = 1;
+}
+
+message UserRequest {
+    string UID = 1;
+} 
+
+message UserResponse {
+    UserInfo info = 1;
+}
+
+message UserInfo {
+    string UID = 1;
+    string Name = 2;
+    string Token = 3;
+}
+
+message CreateUserResponse {
+    Status Result = 1;
+}
+
