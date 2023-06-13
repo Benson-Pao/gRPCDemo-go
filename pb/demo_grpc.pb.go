@@ -22,6 +22,7 @@ const (
 	UserService_GetUser_FullMethodName    = "/pb.UserService/GetUser"
 	UserService_CreateUser_FullMethodName = "/pb.UserService/CreateUser"
 	UserService_GetList_FullMethodName    = "/pb.UserService/GetList"
+	UserService_UploadFile_FullMethodName = "/pb.UserService/UploadFile"
 )
 
 // UserServiceClient is the client API for UserService service.
@@ -31,6 +32,7 @@ type UserServiceClient interface {
 	GetUser(ctx context.Context, in *UserRequest, opts ...grpc.CallOption) (*UserResponse, error)
 	CreateUser(ctx context.Context, in *UserInfo, opts ...grpc.CallOption) (*CreateUserResponse, error)
 	GetList(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ListResponse, error)
+	UploadFile(ctx context.Context, opts ...grpc.CallOption) (UserService_UploadFileClient, error)
 }
 
 type userServiceClient struct {
@@ -68,6 +70,37 @@ func (c *userServiceClient) GetList(ctx context.Context, in *Empty, opts ...grpc
 	return out, nil
 }
 
+func (c *userServiceClient) UploadFile(ctx context.Context, opts ...grpc.CallOption) (UserService_UploadFileClient, error) {
+	stream, err := c.cc.NewStream(ctx, &UserService_ServiceDesc.Streams[0], UserService_UploadFile_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &userServiceUploadFileClient{stream}
+	return x, nil
+}
+
+type UserService_UploadFileClient interface {
+	Send(*RequestBytes) error
+	Recv() (*ResponseBytes, error)
+	grpc.ClientStream
+}
+
+type userServiceUploadFileClient struct {
+	grpc.ClientStream
+}
+
+func (x *userServiceUploadFileClient) Send(m *RequestBytes) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *userServiceUploadFileClient) Recv() (*ResponseBytes, error) {
+	m := new(ResponseBytes)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // UserServiceServer is the server API for UserService service.
 // All implementations must embed UnimplementedUserServiceServer
 // for forward compatibility
@@ -75,6 +108,7 @@ type UserServiceServer interface {
 	GetUser(context.Context, *UserRequest) (*UserResponse, error)
 	CreateUser(context.Context, *UserInfo) (*CreateUserResponse, error)
 	GetList(context.Context, *Empty) (*ListResponse, error)
+	UploadFile(UserService_UploadFileServer) error
 	mustEmbedUnimplementedUserServiceServer()
 }
 
@@ -90,6 +124,9 @@ func (UnimplementedUserServiceServer) CreateUser(context.Context, *UserInfo) (*C
 }
 func (UnimplementedUserServiceServer) GetList(context.Context, *Empty) (*ListResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetList not implemented")
+}
+func (UnimplementedUserServiceServer) UploadFile(UserService_UploadFileServer) error {
+	return status.Errorf(codes.Unimplemented, "method UploadFile not implemented")
 }
 func (UnimplementedUserServiceServer) mustEmbedUnimplementedUserServiceServer() {}
 
@@ -158,6 +195,32 @@ func _UserService_GetList_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _UserService_UploadFile_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(UserServiceServer).UploadFile(&userServiceUploadFileServer{stream})
+}
+
+type UserService_UploadFileServer interface {
+	Send(*ResponseBytes) error
+	Recv() (*RequestBytes, error)
+	grpc.ServerStream
+}
+
+type userServiceUploadFileServer struct {
+	grpc.ServerStream
+}
+
+func (x *userServiceUploadFileServer) Send(m *ResponseBytes) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *userServiceUploadFileServer) Recv() (*RequestBytes, error) {
+	m := new(RequestBytes)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // UserService_ServiceDesc is the grpc.ServiceDesc for UserService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -178,6 +241,13 @@ var UserService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _UserService_GetList_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "UploadFile",
+			Handler:       _UserService_UploadFile_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+	},
 	Metadata: "demo.proto",
 }

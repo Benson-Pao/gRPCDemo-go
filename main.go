@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -23,6 +24,9 @@ import (
 var (
 	Port = flag.String("Port", "50000", "Port")
 	List sync.Map
+
+	RequestBytes = []byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}
+	//ResponseBytes = []byte{0x0f, 0x0e, 0x0d, 0x0c, 0x0b, 0x0a, 0x09, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01, 0x00}
 )
 
 func init() {
@@ -70,6 +74,41 @@ func (s *userServiceServer) GetList(ctx context.Context, _ *pb.Empty) (*pb.ListR
 	return &pb.ListResponse{List: list}, nil
 }
 
+func (s *userServiceServer) UploadFile(stream pb.UserService_UploadFileServer) error {
+
+	dataCh := make(chan *pb.RequestBytes)
+
+	go func() {
+		for {
+			data, err := stream.Recv()
+			if err != nil {
+				if err == io.EOF {
+					log.Println("Stream closed")
+				} else {
+					log.Println(err)
+				}
+				close(dataCh)
+				return
+			}
+			dataCh <- data
+		}
+	}()
+
+	for data := range dataCh {
+		log.Printf("%x\n", data.Data)
+
+		err := stream.Send(&pb.ResponseBytes{
+			Data: data.Data,
+		})
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+	}
+
+	return nil
+}
+
 func main() {
 
 	defer func() {
@@ -82,6 +121,7 @@ func main() {
 
 		// 建立 gRPC 伺服器
 		server := grpc.NewServer()
+		defer server.Stop()
 
 		// 註冊 UserServiceServer
 		userService := &userServiceServer{}
@@ -201,6 +241,43 @@ func Test() {
 		bytes, _ := json.Marshal(listResponse.List)
 		log.Println(string(bytes))
 
+	}
+
+	//stream Test
+	stream, err := client.UploadFile(context.Background())
+	if err != nil {
+		log.Println(err)
+	}
+
+	err = stream.Send(&pb.RequestBytes{Data: RequestBytes})
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	wait := sync.WaitGroup{}
+	wait.Add(1)
+	go func() {
+		defer wait.Done()
+		for {
+			data, err := stream.Recv()
+			if err != nil {
+				if err == io.EOF {
+					log.Println(err)
+					break
+				}
+				log.Println(err)
+				break
+			}
+			log.Printf("%x\n", data.Data)
+
+		}
+	}()
+	wait.Wait()
+
+	err = stream.CloseSend()
+	if err != nil {
+		log.Println(err)
 	}
 
 }
